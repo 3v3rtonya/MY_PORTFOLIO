@@ -633,11 +633,33 @@ function SocialTab() {
   const { data: social = {} } = useQuery({ queryKey: ['admin-social'], queryFn: fetchAdminSocial })
   const [form, setForm] = useState({})
   React.useEffect(() => { if (social) setForm(social) }, [social])
+
+  // Keys accepted by the backend SocialLinksUpdate schema.
+  // Any extra keys in the form state (photo_url, cv_path, profile_back_images, etc.)
+  // must be stripped before sending — the endpoint has extra="forbid".
+  const ALLOWED_KEYS = ['github','linkedin','facebook','x','instagram','whatsapp','email','phone','igs_folder_url']
+
   const saveMut = useMutation({
-    mutationFn: updateSocialLinks,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-links'] }); qc.invalidateQueries({ queryKey: ['admin-social'] }); showToast('Social links updated!', 'success') },
-    onError: () => showToast('Failed to update links', 'error'),
+    mutationFn: (formData) => {
+      const payload = Object.fromEntries(
+        Object.entries(formData).filter(([k]) => ALLOWED_KEYS.includes(k))
+      )
+      return updateSocialLinks(payload)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['social-links'] })
+      qc.invalidateQueries({ queryKey: ['admin-social'] })
+      showToast('Social links updated!', 'success')
+    },
+    onError: (err) => {
+      const detail = err?.response?.data?.detail
+      const msg = Array.isArray(detail)
+        ? detail.map(d => d.msg).join(', ')
+        : detail?.error || 'Failed to update links'
+      showToast(msg, 'error')
+    },
   })
+
   const FIELDS = [
     ['github','GitHub URL'],['linkedin','LinkedIn URL'],['facebook','Facebook URL'],
     ['x','X (Twitter) URL'],['instagram','Instagram URL'],['whatsapp','WhatsApp URL'],
@@ -653,6 +675,36 @@ function SocialTab() {
             <input className={ic} value={form[key] || ''} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} placeholder={`Enter ${label}`} />
           </div>
         ))}
+
+        {/* IGS Folder — separated with a divider so it's clearly distinct */}
+        <div className="pt-3 mt-1 border-t border-white/20 dark:border-white/10">
+          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">
+            IGS [4101] Capstone Projects — Google Drive Folder URL
+          </label>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">
+            Paste the shareable Google Drive folder link here. This powers the "Click to view full IGS [4101] CAPSTONE PROJECTS" button on the Projects page.
+          </p>
+          <input
+            className={ic}
+            value={form['igs_folder_url'] || ''}
+            onChange={e => setForm(f => ({ ...f, igs_folder_url: e.target.value }))}
+            placeholder="https://drive.google.com/drive/folders/..."
+          />
+          {form['igs_folder_url'] && (
+            <a
+              href={form['igs_folder_url']}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-burgundy dark:text-gold hover:underline"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Preview link
+            </a>
+          )}
+        </div>
+
         <button onClick={() => saveMut.mutate(form)} disabled={saveMut.isPending}
           className="mt-2 py-2.5 rounded-xl bg-burgundy text-white font-semibold text-sm hover:bg-burgundy/90 disabled:opacity-60">
           {saveMut.isPending ? 'Saving...' : 'Save Changes'}
@@ -750,11 +802,13 @@ function PhotoTab() {
   })
 
   return (
-    <div className="flex flex-col gap-6 max-w-md">
-      {/* ── Profile Photo ── */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+
+      {/* ── LEFT: Profile Photo ── */}
       <GlassmorphismCard className="p-6">
         <h3 className="font-bold text-burgundy dark:text-gold mb-4">Profile Photo</h3>
         <div className="flex flex-col items-center gap-5">
+          {/* Preview circle */}
           <div className="w-32 h-32 rounded-full border-4 border-burgundy overflow-hidden bg-gradient-to-br from-burgundy/20 to-gold/20 flex items-center justify-center">
             {photoUrl ? (
               <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
@@ -764,71 +818,105 @@ function PhotoTab() {
               </svg>
             )}
           </div>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => e.target.files[0] && uploadMut.mutate(e.target.files[0])} />
-          <button onClick={() => fileRef.current?.click()} disabled={uploadMut.isPending}
-            className="w-full py-2.5 rounded-xl bg-burgundy text-white font-semibold text-sm hover:bg-burgundy/90 disabled:opacity-60">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={e => e.target.files[0] && uploadMut.mutate(e.target.files[0])}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadMut.isPending}
+            className="w-full py-2.5 rounded-xl bg-burgundy text-white font-semibold text-sm hover:bg-burgundy/90 disabled:opacity-60"
+          >
             {uploadMut.isPending ? 'Uploading...' : 'Upload Photo'}
           </button>
           {photoUrl && (
-            <button onClick={() => confirm('Remove photo?') && deleteMut.mutate()} disabled={deleteMut.isPending}
-              className="w-full py-2.5 rounded-xl bg-red-500/20 text-red-600 dark:text-red-400 font-semibold text-sm hover:bg-red-500/30 disabled:opacity-60">
+            <button
+              onClick={() => window.confirm('Remove photo?') && deleteMut.mutate()}
+              disabled={deleteMut.isPending}
+              className="w-full py-2.5 rounded-xl bg-red-500/20 text-red-600 dark:text-red-400 font-semibold text-sm hover:bg-red-500/30 disabled:opacity-60"
+            >
               {deleteMut.isPending ? 'Removing...' : 'Remove Photo'}
             </button>
           )}
-          <p className="text-xs text-gray-400 text-center">Accepted: JPEG, PNG, WebP. This photo appears on the landing page.</p>
+          <p className="text-xs text-gray-400 text-center">JPEG, PNG or WebP. Shown on the landing page.</p>
         </div>
       </GlassmorphismCard>
 
-      {/* ── Profile Back Images ── */}
+      {/* ── RIGHT: Profile Back Images ── */}
       <GlassmorphismCard className="p-6">
-        <h3 className="font-bold text-burgundy dark:text-gold mb-1">Profile Back Images (up to 3)</h3>
+        <h3 className="font-bold text-burgundy dark:text-gold mb-1">Profile Back Images</h3>
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-          These appear on the back side of the flip card on the landing page.
+          Up to 3 images — shown on the back of the flip card.
         </p>
-        <div className="flex gap-3 flex-wrap">
+
+        {/* Image slots */}
+        <div className="flex flex-col gap-3">
+          {/* Uploaded images */}
           {backImages.map((url, idx) => {
             const src = url.startsWith('http') ? url : `${API_URL}${url}`
             return (
-              <div key={idx} className="relative group">
+              <div key={idx} className="flex items-center gap-3 p-2 rounded-xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10">
                 <img
                   src={src}
                   alt={`Back image ${idx + 1}`}
-                  className="w-24 h-24 object-cover rounded-lg border border-white/20"
+                  className="w-14 h-14 object-cover rounded-lg flex-shrink-0 border border-white/20"
                 />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Image {idx + 1}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{url.split('/').pop()}</p>
+                </div>
                 <button
-                  onClick={() => window.confirm('Remove this back image?') && deleteBackMut.mutate(idx)}
+                  onClick={() => window.confirm('Remove this image?') && deleteBackMut.mutate(idx)}
                   disabled={deleteBackMut.isPending}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                  aria-label="Delete back image"
+                  className="flex-shrink-0 px-2.5 py-1 rounded-lg bg-red-500/20 text-red-500 text-xs font-medium hover:bg-red-500/30 disabled:opacity-50 transition-colors"
+                  aria-label={`Delete back image ${idx + 1}`}
                 >
-                  ✕
+                  Remove
                 </button>
               </div>
             )
           })}
 
+          {/* Upload slot — only shown when fewer than 3 */}
           {backImages.length < 3 && (
             <button
               onClick={() => backImgRef.current?.click()}
               disabled={uploadBackMut.isPending}
-              className="w-24 h-24 rounded-lg border-2 border-dashed border-white/30 dark:border-white/10 flex flex-col items-center justify-center text-gray-400 hover:border-burgundy/50 hover:text-burgundy dark:hover:text-gold transition-colors disabled:opacity-50"
+              className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-white/30 dark:border-white/10 hover:border-burgundy/50 dark:hover:border-gold/40 text-gray-400 hover:text-burgundy dark:hover:text-gold transition-colors disabled:opacity-50 w-full text-left"
               aria-label="Upload back image"
             >
-              {uploadBackMut.isPending ? (
-                <div className="w-5 h-5 rounded-full border-2 border-burgundy border-t-transparent animate-spin" />
-              ) : (
-                <>
-                  <span className="text-2xl leading-none">+</span>
-                  <span className="text-[10px] mt-1">Upload</span>
-                </>
-              )}
+              <div className="w-10 h-10 rounded-lg bg-burgundy/10 flex items-center justify-center flex-shrink-0">
+                {uploadBackMut.isPending ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-burgundy border-t-transparent animate-spin" />
+                ) : (
+                  <svg className="w-5 h-5 text-burgundy" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {uploadBackMut.isPending ? 'Uploading...' : `Add Image ${backImages.length + 1}`}
+                </p>
+                <p className="text-[10px]">{3 - backImages.length} slot{3 - backImages.length !== 1 ? 's' : ''} remaining</p>
+              </div>
             </button>
           )}
+
+          {backImages.length === 3 && (
+            <p className="text-xs text-center text-gray-400 dark:text-gray-500 py-1">
+              All 3 slots filled — remove one to upload a replacement.
+            </p>
+          )}
         </div>
+
         <input
           ref={backImgRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
           onChange={e => {
             const file = e.target.files?.[0]
@@ -837,6 +925,7 @@ function PhotoTab() {
           }}
         />
       </GlassmorphismCard>
+
     </div>
   )
 }

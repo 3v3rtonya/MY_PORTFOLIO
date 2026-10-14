@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import PageTransitionWrapper from '../components/PageTransitionWrapper'
 import ProjectCard from '../components/ProjectCard'
 import FilterControl from '../components/FilterControl'
-import { fetchProjects, fetchMediaByCategory } from '../api/client'
+import { fetchProjects, fetchMediaByCategory, fetchSocialLinks } from '../api/client'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -165,6 +165,14 @@ export default function ProjectsPage() {
     retry: 1,
   })
 
+  const { data: siteSettings } = useQuery({
+    queryKey: ['social-links'],
+    queryFn: fetchSocialLinks,
+    staleTime: 60000,
+  })
+
+  const igsFolderUrl = siteSettings?.igs_folder_url?.trim() || null
+
   const allTags = useMemo(() => {
     const s = new Set()
     projects.forEach(p => (p.tech_stack || []).forEach(t => s.add(t)))
@@ -303,25 +311,41 @@ export default function ProjectsPage() {
 
           {/* View Full IGS Folder Button — below Documents & CVs */}
           <div className="flex justify-center pt-2">
-            <a
-              href="https://drive.google.com/drive/folders/YOUR_FOLDER_ID_HERE"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-burgundy to-burgundy/80 text-white font-semibold text-sm shadow-lg hover:shadow-burgundy/30 hover:scale-[1.02] active:scale-95 transition-all"
-            >
-              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 87.3 78" fill="currentColor">
-                <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
-                <path d="M43.65 25L29.9 1.4C28.55.5 26.95 0 25.3 0 23.65 0 22.05.5 20.7 1.4L3.85 29.5 17.2 53z" fill="#00ac47"/>
-                <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l6.45 12.4z" fill="#ea4335"/>
-                <path d="M43.65 25L57.4 1.4C56.05.5 54.45 0 52.8 0H34.5c-1.65 0-3.25.5-4.6 1.4z" fill="#00832d"/>
-                <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2z" fill="#2684fc"/>
-                <path d="M73.4 26.5l-16.85-29.1C55.2.5 53.6 0 51.95 0h-1.65l-6.65 25 15.85 28H87.3c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
-              </svg>
-              Click to view full IGS [4101] CAPSTONE PROJECTS
-              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
+            {igsFolderUrl ? (
+              <a
+                href={igsFolderUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-burgundy to-burgundy/80 text-white font-semibold text-sm shadow-lg hover:shadow-burgundy/30 hover:scale-[1.02] active:scale-95 transition-all"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 87.3 78" fill="currentColor">
+                  <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/>
+                  <path d="M43.65 25L29.9 1.4C28.55.5 26.95 0 25.3 0 23.65 0 22.05.5 20.7 1.4L3.85 29.5 17.2 53z" fill="#00ac47"/>
+                  <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H59.8l6.45 12.4z" fill="#ea4335"/>
+                  <path d="M43.65 25L57.4 1.4C56.05.5 54.45 0 52.8 0H34.5c-1.65 0-3.25.5-4.6 1.4z" fill="#00832d"/>
+                  <path d="M59.8 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.4 4.5-1.2z" fill="#2684fc"/>
+                  <path d="M73.4 26.5l-16.85-29.1C55.2.5 53.6 0 51.95 0h-1.65l-6.65 25 15.85 28H87.3c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/>
+                </svg>
+                Click to view full IGS [4101] CAPSTONE PROJECTS
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            ) : (
+              <button
+                disabled
+                title="Folder URL not set — add it via Admin → Social Links"
+                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-gray-300/60 dark:bg-white/10 text-gray-400 dark:text-gray-500 font-semibold text-sm cursor-not-allowed"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" />
+                </svg>
+                Click to view full IGS [4101] CAPSTONE PROJECTS
+                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            )}
           </div>
 
         </div>

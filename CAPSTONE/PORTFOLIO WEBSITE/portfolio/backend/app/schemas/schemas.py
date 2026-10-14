@@ -140,6 +140,7 @@ class SocialLinksUpdate(BaseModel):
     whatsapp: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    igs_folder_url: Optional[str] = None
     model_config = ConfigDict(extra="forbid")
 
 class SocialLinksResponse(BaseModel):
@@ -154,6 +155,7 @@ class SocialLinksResponse(BaseModel):
     photo_url: Optional[str] = None
     cv_path: Optional[str] = None
     profile_back_images: Optional[List[str]] = None
+    igs_folder_url: Optional[str] = None
 
 
 # ── Notifications ─────────────────────────────────────────────────────────────

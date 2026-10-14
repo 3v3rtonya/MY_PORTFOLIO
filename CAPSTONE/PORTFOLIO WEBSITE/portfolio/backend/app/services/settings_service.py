@@ -32,16 +32,17 @@ def get_social_links(db: Session) -> SocialLinksResponse:
     raw_back = d.get("profile_back_images")
     profile_back_images = _json.loads(raw_back) if raw_back else []
     return SocialLinksResponse(
-        github    = d.get("github"),
-        linkedin  = d.get("linkedin"),
-        facebook  = d.get("facebook"),
-        x         = d.get("x"),
-        instagram = d.get("instagram"),
-        whatsapp  = d.get("whatsapp"),
-        email     = d.get("email"),
-        phone     = d.get("phone"),
-        photo_url = d.get("photo_url"),
-        cv_path   = d.get("cv_path"),
+        github          = d.get("github"),
+        linkedin        = d.get("linkedin"),
+        facebook        = d.get("facebook"),
+        x               = d.get("x"),
+        instagram       = d.get("instagram"),
+        whatsapp        = d.get("whatsapp"),
+        email           = d.get("email"),
+        phone           = d.get("phone"),
+        photo_url       = d.get("photo_url"),
+        cv_path         = d.get("cv_path"),
+        igs_folder_url  = d.get("igs_folder_url"),
         profile_back_images = profile_back_images if profile_back_images else None,
     )
 
