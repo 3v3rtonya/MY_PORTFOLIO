@@ -1,61 +1,51 @@
 # Verification Results
 
 ## Backend Import Test
+
 ```
 cd backend && .venv\Scripts\python -c "from app.main import app; print('Backend import OK')"
 ```
-**Result:** `Backend import OK` — exit code 0 ✅
 
-## Python Syntax Check
-```
-.venv\Scripts\python -m py_compile app/routers/health.py app/routers/projects.py \
-  app/routers/settings.py app/routers/contact.py app/routers/cv.py \
-  app/routers/auth.py app/routers/admin.py app/schemas/schemas.py \
-  app/services/settings_service.py
-```
-**Result:** Exit code 0 — no syntax errors ✅
+**Output:** `Backend import OK`
+**Exit code:** 0 ✅
+
+---
 
 ## Frontend Build
+
 ```
 cd frontend && npm run build
 ```
-**Result:**
+
+**Output:**
 ```
+> portfolio-frontend@1.0.0 build
+> vite build
+
 vite v5.2.12 building for production...
 ✓ 448 modules transformed.
 dist/index.html                   0.85 kB │ gzip:   0.47 kB
 dist/assets/index-CI5vHTaS.css   35.06 kB │ gzip:   6.78 kB
 dist/assets/index-BYC3QfIy.js   451.83 kB │ gzip: 139.03 kB
-✓ built in 3.23s
+✓ built in 2.72s
 ```
-**Exit code 0** — zero errors ✅
+**Exit code:** 0 ✅ — Zero errors, zero warnings.
 
 ---
 
-## Task Status Summary
+## Plan Task Status
 
-### Task 1 — Revert ProjectCard to simple glassmorphism card
-**Status: Already complete.** `ProjectCard.jsx` is a simple flat card with no flip state, no `useState`, no `back_images`. Glassmorphism classes intact. ✅
+All tasks from `plan.md` were already implemented in the codebase when verification ran. Confirmed:
 
-### Task 2 — Add profile back-images feature
-**Status: Already complete.**
-- `backend/app/routers/admin.py`: `GET /profile-back-images`, `POST /profile-back-image`, `DELETE /profile-back-image/{index}` all present with rate limiting, file size validation, docstrings.
-- `frontend/src/api/client.js`: `fetchProfileBackImages`, `uploadProfileBackImage`, `deleteProfileBackImage` all exported.
-- `frontend/src/pages/HomePage.jsx`: `FlipCard` accepts `backImages=[]`, renders grid on back side; `HomePage` queries `profile-back-images` from `fetchSocialLinks` and passes to FlipCard.
-- `frontend/src/pages/AdminPage.jsx`: `PhotoTab` has "Profile Back Images (up to 3)" section with upload/delete mutations, thumbnails, dashed `+` slot, loading spinner. ✅
-
-### Task 3 — Strengthen API endpoints
-**Status: Already complete.**
-- All routers have `@limiter.limit(...)` decorators with `request: Request` as first param.
-- All `HTTPException` details use `{"error": "..."}` dict format.
-- File size validation in all upload endpoints (images ≤ 10 MB, PDFs ≤ 25 MB).
-- `ContactMessageCreate`, `LoginRequest`, `ProjectCreate` all have `field_validator` guards. ✅
-
-### Task 4 — Clean codebase
-**Status: Already complete.**
-- No duplicate imports found across Python files.
-- All `HTTPException` details normalised to dict format.
-- Type hints on all route function signatures.
-- No bare `except Exception` blocks that swallow errors silently — all log via `logger.error`.
-- `schemas.py`: URL validation for `github_url`/`live_url`, not-blank validators.
-- `settings_service.py`: returns `profile_back_images` in `get_social_links`. ✅
+| Task | File(s) | Status |
+|------|---------|--------|
+| 1. Revert ProjectCard to simple glassmorphism | `ProjectCard.jsx` | ✅ Already a simple non-flip card |
+| 2. Profile back-image endpoints | `admin.py` | ✅ GET/POST/DELETE all present with rate limits, file-size guards, docstrings |
+| 3. Expose `profile_back_images` in public settings | `schemas.py`, `settings_service.py` | ✅ Field present in `SocialLinksResponse`, parsed and returned |
+| 4. API client functions | `client.js` | ✅ `fetchProfileBackImages`, `uploadProfileBackImage`, `deleteProfileBackImage` exported |
+| 5. FlipCard back images display | `HomePage.jsx` | ✅ `backImages` prop, adaptive grid, hint text |
+| 6. Admin PhotoTab back images section | `AdminPage.jsx` | ✅ Upload/delete UI with thumbnails, spinner, max-3 enforcement |
+| 7. Rate limiter decorators on all public endpoints | All router files | ✅ `@limiter.limit(...)` + `request: Request` on every route |
+| 8. File-size validation in upload endpoints | `admin.py` | ✅ 10 MB for images, 25 MB for PDFs |
+| 9. URL validators on ProjectCreate | `schemas.py` | ✅ `field_validator` on `github_url`/`live_url` |
+| 10. Normalise error format, type hints, docstrings | All routers | ✅ All `HTTPException` use `{"error": "..."}` dicts |
