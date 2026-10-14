@@ -28,7 +28,7 @@ vite v5.2.12 building for production...
 dist/index.html                   0.85 kB │ gzip:   0.47 kB
 dist/assets/index-CI5vHTaS.css   35.06 kB │ gzip:   6.78 kB
 dist/assets/index-BYC3QfIy.js   451.83 kB │ gzip: 139.03 kB
-✓ built in 12.22s
+✓ built in 2.81s
 ```
 
 Exit code: 0 ✅

@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Custom Properties ── */
+:root {
+  /* Light Mode */
+  --color-primary: #800020;   /* Burgundy */
+  --color-accent: #D4AF37;    /* Gold */
+  --color-bg: #F5F0E8;        /* Beige */
+  --color-text: #1A1A2E;
+  --color-text-muted: #6B7280;
+
+  /* Glassmorphism */
+  --glass-blur: 12px;
+  --glass-bg-opacity: 0.15;
+  --glass-border-opacity: 0.20;
+
+  /* Transitions */
+  --transition-fast: 150ms ease-out;
+  --transition-base: 300ms ease-out;
+  --transition-slow: 600ms ease-out;
+}
+
+.dark {
+  --color-bg: #1A1A2E;
+  --color-text: #E0E0E0;
+  --color-text-muted: #9CA3AF;
+  --glass-bg-opacity: 0.08;
+  --glass-border-opacity: 0.12;
+}
+
+/* ── Base Styles ── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  transition: background-color 300ms ease-out, color 300ms ease-out;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* ── Glassmorphism Utility ── */
+.glass {
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background-color: rgba(255, 255, 255, var(--glass-bg-opacity));
+  border: 1px solid rgba(255, 255, 255, var(--glass-border-opacity));
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #800020;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+/* ── Selection ── */
+::selection {
+  background-color: #800020;
+  color: #F5F0E8;
+}
