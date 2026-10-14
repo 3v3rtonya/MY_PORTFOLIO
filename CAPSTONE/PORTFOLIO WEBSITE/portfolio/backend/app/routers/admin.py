@@ -18,6 +18,7 @@ from app.schemas.schemas import (
     NotificationResponse, NotificationReadUpdate, SiteSettingResponse,
 )
 from app.services import contact_service, cv_service, project_service, settings_service
+from app.services import storage_service as storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -26,8 +27,8 @@ router = APIRouter(
     dependencies=[Depends(get_current_admin)],
 )
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static")
-_PROFILE_DIR = os.path.join(STATIC_DIR, "profile")
+# Legacy local path — only used for cv_status check when no R2
+_STATIC_DIR  = os.path.join(os.path.dirname(__file__), "..", "..", "static")
 
 
 # ── Projects ──────────────────────────────────────────────────────────────────
@@ -77,8 +78,6 @@ def admin_delete_project(request: Request, project_id: int, db: Session = Depend
 
 # ── Project Image Upload ──────────────────────────────────────────────────────
 
-_PROJECT_IMAGES_DIR = os.path.join(STATIC_DIR, "projects")
-
 @router.post("/projects/{project_id}/image", response_model=ProjectResponse)
 @limiter.limit("30/minute")
 def upload_project_image(
@@ -91,32 +90,23 @@ def upload_project_image(
     allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     if file.content_type not in allowed:
         raise HTTPException(status_code=422, detail={"error": "Only JPEG, PNG, WebP or GIF images are accepted"})
-
     content = file.file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 10 MB)"})
-    file.file.seek(0)
 
     project = project_service.get_project(db, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail={"error": "Project not found"})
 
-    os.makedirs(_PROJECT_IMAGES_DIR, exist_ok=True)
-
-    # Remove old image file if it exists
+    # Delete old image
     if project.image_url:
-        old_filename = project.image_url.lstrip("/").replace("static/projects/", "")
-        old_path = os.path.join(_PROJECT_IMAGES_DIR, old_filename)
-        if os.path.isfile(old_path):
-            os.remove(old_path)
+        storage.delete(storage.key_from_url(project.image_url))
 
     ext = (file.filename or "image.jpg").rsplit(".", 1)[-1].lower()
-    filename = f"project_{project_id}_{uuid.uuid4().hex[:8]}.{ext}"
-    dest = os.path.join(_PROJECT_IMAGES_DIR, filename)
-    with open(dest, "wb") as fh:
-        fh.write(content)
+    key = f"projects/project_{project_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    url = storage.upload(key, content, file.content_type or "image/jpeg")
 
-    project.image_url = f"/static/projects/{filename}"
+    project.image_url = url
     db.commit()
     db.refresh(project)
     return project
@@ -130,10 +120,7 @@ def delete_project_image(request: Request, project_id: int, db: Session = Depend
     if project is None:
         raise HTTPException(status_code=404, detail={"error": "Project not found"})
     if project.image_url:
-        filename = project.image_url.lstrip("/").split("projects/")[-1]
-        old_path = os.path.join(_PROJECT_IMAGES_DIR, filename)
-        if os.path.isfile(old_path):
-            os.remove(old_path)
+        storage.delete(storage.key_from_url(project.image_url))
     project.image_url = None
     db.commit()
     db.refresh(project)
@@ -214,44 +201,36 @@ def upload_cv(
     """Upload a new CV PDF (max 25 MB). Replaces any existing CV."""
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=422, detail={"error": "Only PDF files are accepted"})
-
     content = file.file.read()
     if len(content) > 25 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 25 MB)"})
 
-    os.makedirs(STATIC_DIR, exist_ok=True)
-    dest = os.path.join(STATIC_DIR, "Everton_Anyiro_CV.pdf")
-    with open(dest, "wb") as fh:
-        fh.write(content)
-    settings_service.set_setting(db, "cv_path", "./static/Everton_Anyiro_CV.pdf")
-    settings_service.create_notification(
-        db, type_="cv_upload",
-        title="CV Updated",
-        body="A new CV PDF has been uploaded"
-    )
-    return {"message": "CV uploaded successfully", "path": dest}
+    key = "Everton_Anyiro_CV.pdf"
+    url = storage.upload(key, content, "application/pdf")
+    settings_service.set_setting(db, "cv_path", url)
+    settings_service.create_notification(db, type_="cv_upload", title="CV Updated", body="A new CV PDF has been uploaded")
+    return {"message": "CV uploaded successfully", "url": url}
 
 @router.delete("/cv", status_code=200)
 @limiter.limit("10/minute")
 def delete_cv(request: Request, db: Session = Depends(get_db)):
     """Remove the uploaded CV file."""
-    dest = os.path.join(STATIC_DIR, "Everton_Anyiro_CV.pdf")
-    if os.path.isfile(dest):
-        os.remove(dest)
+    storage.delete("Everton_Anyiro_CV.pdf")
     settings_service.set_setting(db, "cv_path", "")
-    settings_service.create_notification(
-        db, type_="cv_upload",
-        title="CV Removed",
-        body="The CV PDF has been deleted"
-    )
+    settings_service.create_notification(db, type_="cv_upload", title="CV Removed", body="The CV PDF has been deleted")
     return {"message": "CV removed"}
 
 @router.get("/cv/status")
 @limiter.limit("60/minute")
-def cv_status(request: Request):
-    """Check whether a CV file is currently uploaded."""
-    dest = os.path.join(STATIC_DIR, "Everton_Anyiro_CV.pdf")
-    return {"exists": os.path.isfile(dest)}
+def cv_status(request: Request, db: Session = Depends(get_db)):
+    """Check whether a CV file is currently available."""
+    cv_path = settings_service.get_setting(db, "cv_path")
+    exists = bool(cv_path and cv_path.strip())
+    # Also check local fallback
+    if not exists:
+        local = os.path.join(_STATIC_DIR, "Everton_Anyiro_CV.pdf")
+        exists = os.path.isfile(local)
+    return {"exists": exists}
 
 
 # ── Profile Photo Upload ──────────────────────────────────────────────────────
@@ -264,32 +243,25 @@ def upload_photo(
     db: Session = Depends(get_db),
 ):
     """Upload a profile photo (max 10 MB). Replaces any existing photo."""
-    allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     if file.content_type not in allowed:
         raise HTTPException(status_code=422, detail={"error": "Only JPEG, PNG, WebP or GIF images accepted"})
-
     content = file.file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 10 MB)"})
 
-    os.makedirs(STATIC_DIR, exist_ok=True)
     ext = (file.filename or "profile.jpg").rsplit(".", 1)[-1].lower()
-    dest_name = f"profile.{ext}"
-    dest = os.path.join(STATIC_DIR, dest_name)
-    with open(dest, "wb") as fh:
-        fh.write(content)
-    photo_url = f"/static/{dest_name}"
-    settings_service.set_setting(db, "photo_url", photo_url)
-    return {"message": "Photo uploaded", "photo_url": photo_url}
+    key = f"profile/profile.{ext}"
+    url = storage.upload(key, content, file.content_type or "image/jpeg")
+    settings_service.set_setting(db, "photo_url", url)
+    return {"message": "Photo uploaded", "photo_url": url}
 
 @router.delete("/photo", status_code=200)
 @limiter.limit("20/minute")
 def delete_photo(request: Request, db: Session = Depends(get_db)):
     """Remove the uploaded profile photo."""
     for ext in ["jpg", "jpeg", "png", "webp", "gif"]:
-        p = os.path.join(STATIC_DIR, f"profile.{ext}")
-        if os.path.isfile(p):
-            os.remove(p)
+        storage.delete(f"profile/profile.{ext}")
     settings_service.set_setting(db, "photo_url", "")
     return {"message": "Photo removed"}
 
@@ -316,7 +288,6 @@ def upload_profile_back_image(
     allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     if file.content_type not in allowed:
         raise HTTPException(status_code=422, detail={"error": "Only image files accepted"})
-
     content = file.file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 10 MB)"})
@@ -326,16 +297,12 @@ def upload_profile_back_image(
     if len(current) >= 3:
         raise HTTPException(status_code=400, detail={"error": "Maximum of 3 back images already uploaded"})
 
-    os.makedirs(_PROFILE_DIR, exist_ok=True)
     ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
-    n = len(current)
-    fname = f"back_{n}.{ext}"
-    dest = os.path.join(_PROFILE_DIR, fname)
-    with open(dest, "wb") as fh:
-        fh.write(content)
-    current.append(f"/static/profile/{fname}")
+    key = f"profile/back_{uuid.uuid4().hex[:8]}.{ext}"
+    url = storage.upload(key, content, file.content_type or "image/jpeg")
+    current.append(url)
     settings_service.set_setting(db, "profile_back_images", json.dumps(current))
-    return {"images": current, "url": f"/static/profile/{fname}"}
+    return {"images": current, "url": url}
 
 
 @router.delete("/profile-back-image/{index}", status_code=200)
@@ -347,10 +314,7 @@ def delete_profile_back_image(request: Request, index: int, db: Session = Depend
     if index < 0 or index >= len(current):
         raise HTTPException(status_code=404, detail={"error": "Image index out of range"})
     url = current.pop(index)
-    fname = url.split("/profile/")[-1]
-    p = os.path.join(_PROFILE_DIR, fname)
-    if os.path.isfile(p):
-        os.remove(p)
+    storage.delete(storage.key_from_url(url))
     settings_service.set_setting(db, "profile_back_images", json.dumps(current))
     return {"images": current}
 
@@ -405,8 +369,6 @@ def mark_all_notifications_read(request: Request, db: Session = Depends(get_db))
 from app.models.orm import SiteMedia
 from app.schemas.schemas import SiteMediaCreate, SiteMediaResponse, SiteMediaUpdate
 
-_IGS_DIR = os.path.join(STATIC_DIR, "igs")
-
 
 @router.get("/media/{category}", response_model=List[SiteMediaResponse])
 @limiter.limit("60/minute")
@@ -433,12 +395,7 @@ def admin_create_media(request: Request, body: SiteMediaCreate, db: Session = De
 
 @router.patch("/media/{media_id}", response_model=SiteMediaResponse)
 @limiter.limit("30/minute")
-def admin_update_media(
-    request: Request,
-    media_id: int,
-    body: SiteMediaUpdate,
-    db: Session = Depends(get_db),
-) -> SiteMediaResponse:
+def admin_update_media(request: Request, media_id: int, body: SiteMediaUpdate, db: Session = Depends(get_db)) -> SiteMediaResponse:
     """Update fields on an existing site media item."""
     item = db.query(SiteMedia).filter(SiteMedia.id == media_id).first()
     if item is None:
@@ -457,14 +414,9 @@ def admin_delete_media(request: Request, media_id: int, db: Session = Depends(ge
     item = db.query(SiteMedia).filter(SiteMedia.id == media_id).first()
     if item is None:
         raise HTTPException(status_code=404, detail={"error": "Media item not found"})
-    # Remove associated image files
-    os.makedirs(_IGS_DIR, exist_ok=True)
     for url in [item.thumbnail] + (item.back_images or []):
         if url:
-            fname = url.split("/igs/")[-1]
-            p = os.path.join(_IGS_DIR, fname)
-            if os.path.isfile(p):
-                os.remove(p)
+            storage.delete(storage.key_from_url(url))
     db.delete(item)
     db.commit()
     return {"message": "Media item deleted"}
@@ -474,17 +426,11 @@ def admin_delete_media(request: Request, media_id: int, db: Session = Depends(ge
 
 @router.post("/media/{media_id}/thumbnail", response_model=SiteMediaResponse)
 @limiter.limit("30/minute")
-def upload_media_thumbnail(
-    request: Request,
-    media_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-) -> SiteMediaResponse:
+def upload_media_thumbnail(request: Request, media_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)) -> SiteMediaResponse:
     """Upload a thumbnail image for a media item (max 10 MB)."""
     allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     if file.content_type not in allowed:
         raise HTTPException(status_code=422, detail={"error": "Only image files are accepted"})
-
     content = file.file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 10 MB)"})
@@ -493,21 +439,13 @@ def upload_media_thumbnail(
     if item is None:
         raise HTTPException(status_code=404, detail={"error": "Media item not found"})
 
-    os.makedirs(_IGS_DIR, exist_ok=True)
-
-    # Remove old thumbnail
     if item.thumbnail:
-        old = os.path.join(_IGS_DIR, item.thumbnail.split("/igs/")[-1])
-        if os.path.isfile(old):
-            os.remove(old)
+        storage.delete(storage.key_from_url(item.thumbnail))
 
     ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
-    fname = f"thumb_{media_id}_{uuid.uuid4().hex[:8]}.{ext}"
-    dest = os.path.join(_IGS_DIR, fname)
-    with open(dest, "wb") as fh:
-        fh.write(content)
-
-    item.thumbnail = f"/static/igs/{fname}"
+    key = f"igs/thumb_{media_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    url = storage.upload(key, content, file.content_type or "image/jpeg")
+    item.thumbnail = url
     db.commit()
     db.refresh(item)
     return item
@@ -521,9 +459,7 @@ def delete_media_thumbnail(request: Request, media_id: int, db: Session = Depend
     if item is None:
         raise HTTPException(status_code=404, detail={"error": "Media item not found"})
     if item.thumbnail:
-        old = os.path.join(_IGS_DIR, item.thumbnail.split("/igs/")[-1])
-        if os.path.isfile(old):
-            os.remove(old)
+        storage.delete(storage.key_from_url(item.thumbnail))
     item.thumbnail = None
     db.commit()
     db.refresh(item)
@@ -534,17 +470,11 @@ def delete_media_thumbnail(request: Request, media_id: int, db: Session = Depend
 
 @router.post("/media/{media_id}/back-image", response_model=SiteMediaResponse)
 @limiter.limit("30/minute")
-def upload_media_back_image(
-    request: Request,
-    media_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-) -> SiteMediaResponse:
-    """Upload a back image for a media item flip card (max 3 images, each max 10 MB)."""
+def upload_media_back_image(request: Request, media_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)) -> SiteMediaResponse:
+    """Upload a back image for a media item flip card (max 3, each max 10 MB)."""
     allowed = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     if file.content_type not in allowed:
         raise HTTPException(status_code=422, detail={"error": "Only image files are accepted"})
-
     content = file.file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"error": "File too large (max 10 MB)"})
@@ -552,19 +482,14 @@ def upload_media_back_image(
     item = db.query(SiteMedia).filter(SiteMedia.id == media_id).first()
     if item is None:
         raise HTTPException(status_code=404, detail={"error": "Media item not found"})
-
     current = list(item.back_images or [])
     if len(current) >= 3:
         raise HTTPException(status_code=400, detail={"error": "Maximum of 3 back images already uploaded"})
 
-    os.makedirs(_IGS_DIR, exist_ok=True)
     ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
-    fname = f"back_{media_id}_{uuid.uuid4().hex[:8]}.{ext}"
-    dest = os.path.join(_IGS_DIR, fname)
-    with open(dest, "wb") as fh:
-        fh.write(content)
-
-    current.append(f"/static/igs/{fname}")
+    key = f"igs/back_{media_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    url = storage.upload(key, content, file.content_type or "image/jpeg")
+    current.append(url)
     item.back_images = current
     db.commit()
     db.refresh(item)
@@ -582,10 +507,7 @@ def delete_media_back_image(request: Request, media_id: int, img_index: int, db:
     if img_index < 0 or img_index >= len(current):
         raise HTTPException(status_code=404, detail={"error": "Image index out of range"})
     url = current.pop(img_index)
-    fname = url.split("/igs/")[-1]
-    p = os.path.join(_IGS_DIR, fname)
-    if os.path.isfile(p):
-        os.remove(p)
+    storage.delete(storage.key_from_url(url))
     item.back_images = current if current else None
     db.commit()
     db.refresh(item)

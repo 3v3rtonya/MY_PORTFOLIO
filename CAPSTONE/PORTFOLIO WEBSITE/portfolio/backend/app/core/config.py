@@ -9,6 +9,13 @@ class Settings(BaseSettings):
     allowed_origins: str
     cv_file_path: str = "./static/Everton_Anyiro_CV.pdf"
 
+    # Cloudflare R2 — all optional; if absent, storage falls back to local disk
+    r2_account_id: str        = ""
+    r2_access_key_id: str     = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str       = ""
+    r2_public_url: str        = ""   # e.g. https://pub-xxxx.r2.dev
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -18,10 +25,12 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def strip_database_url(cls, v: str) -> str:
-        """Strip whitespace and normalise asyncpg -> psycopg2 URL."""
+        """Strip whitespace and normalise asyncpg/async URLs → psycopg2 sync URL."""
         v = str(v).strip()
+        # Neon uses postgresql+psycopg2:// or postgres:// — normalise both
         v = v.replace("postgresql+asyncpg://", "postgresql://")
         v = v.replace("asyncpg://", "postgresql://")
+        v = v.replace("postgres://", "postgresql://")
         return v
 
     @field_validator("jwt_secret_key", "cv_file_path", "allowed_origins", mode="before")
