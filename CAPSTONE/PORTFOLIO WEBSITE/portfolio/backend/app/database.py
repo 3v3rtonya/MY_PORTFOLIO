@@ -13,6 +13,7 @@ DATABASE_URL = (
     _raw_url
     .replace("postgresql+asyncpg://", "postgresql://")
     .replace("asyncpg://", "postgresql://")
+    .replace("postgresql://", "postgresql+psycopg2://")
     .strip()
 )
 
