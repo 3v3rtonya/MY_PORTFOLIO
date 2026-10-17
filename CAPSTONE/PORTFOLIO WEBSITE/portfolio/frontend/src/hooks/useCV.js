@@ -8,18 +8,10 @@ export function useCV() {
   async function downloadCV() {
     setCvError(null)
     try {
-      const res = await fetch(`${API_URL}/api/v1/cv/download`)
-      if (res.status === 404) {
-        setCvError('CV is not available at the moment.')
-        return
-      }
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'Everton_Anyiro_CV.pdf'
-      a.click()
-      window.URL.revokeObjectURL(url)
+      // Open the download endpoint directly in a new tab.
+      // The backend either redirects to R2 or streams the local file —
+      // both work correctly when the browser navigates directly.
+      window.open(`${API_URL}/api/v1/cv/download`, '_blank')
     } catch {
       setCvError('Could not download CV. Please try again.')
     }

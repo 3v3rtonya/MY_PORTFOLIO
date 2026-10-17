@@ -48,8 +48,8 @@ def get_social_links(db: Session) -> SocialLinksResponse:
 
 def update_social_links(db: Session, data: dict) -> SocialLinksResponse:
     for key, value in data.items():
-        if value is not None:
-            set_setting(db, key, value)
+        if value is not None:  # save empty strings too (allows clearing a field)
+            set_setting(db, key, value if value != "" else None)
     return get_social_links(db)
 
 # ── Notifications ─────────────────────────────────────────────────────────────

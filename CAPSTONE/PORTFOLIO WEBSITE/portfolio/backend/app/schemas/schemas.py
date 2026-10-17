@@ -68,7 +68,6 @@ class ProjectResponse(BaseModel):
     github_url: Optional[str]
     live_url: Optional[str]
     image_url: Optional[str]
-    back_images: Optional[List[str]] = None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

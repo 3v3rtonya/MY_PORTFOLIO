@@ -25,7 +25,7 @@ function AnimatedRoutes() {
         <Route path="/skills"     element={<SkillsPage />}  />
         <Route path="/projects"   element={<ProjectsPage />}/>
         <Route path="/contact"    element={<ContactPage />} />
-        <Route path="/admin-xk92" element={<AdminPage />}   />
+        <Route path="/everton-006" element={<AdminPage />}   />
       </Routes>
     </AnimatePresence>
   )
