@@ -23,8 +23,15 @@ function VideoCard({ item }) {
 
   function getEmbedUrl(url) {
     if (!url) return null
-    const match = url.match(/\/file\/d\/([^/]+)/)
-    if (match) return `https://drive.google.com/file/d/${match[1]}/preview`
+    // Format 1: /file/d/<id>/... → standard share link
+    const match1 = url.match(/\/file\/d\/([^/?#]+)/)
+    if (match1) return `https://drive.google.com/file/d/${match1[1]}/preview`
+    // Format 2: open?id=<id> or ?id=<id>
+    const match2 = url.match(/[?&]id=([^&]+)/)
+    if (match2) return `https://drive.google.com/file/d/${match2[1]}/preview`
+    // Format 3: /d/<id>/ shorthand
+    const match3 = url.match(/\/d\/([^/?#]+)/)
+    if (match3) return `https://drive.google.com/file/d/${match3[1]}/preview`
     return url
   }
 

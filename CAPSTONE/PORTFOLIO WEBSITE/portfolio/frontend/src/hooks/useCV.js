@@ -8,10 +8,10 @@ export function useCV() {
   async function downloadCV() {
     setCvError(null)
     try {
-      // Open the download endpoint directly in a new tab.
-      // The backend either redirects to R2 or streams the local file —
-      // both work correctly when the browser navigates directly.
-      window.open(`${API_URL}/api/v1/cv/download`, '_blank')
+      const w = window.open(`${API_URL}/api/v1/cv/download`, '_blank')
+      if (!w) {
+        setCvError('Popup blocked — please allow popups for this site and try again.')
+      }
     } catch {
       setCvError('Could not download CV. Please try again.')
     }

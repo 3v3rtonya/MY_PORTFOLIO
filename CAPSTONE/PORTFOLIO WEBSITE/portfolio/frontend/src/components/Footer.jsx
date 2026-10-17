@@ -1,28 +1,63 @@
 ﻿import React from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSocialLinks } from '../api/client'
 import {
   GitHubIcon, LinkedInIcon, MailIcon,
   FacebookIcon, XIcon, InstagramIcon, WhatsAppIcon,
 } from './Icons'
 
 const navLinks = [
-  { to: '/', label: 'Home' },
-  { to: '/about', label: 'About' },
-  { to: '/skills', label: 'Skills' },
+  { to: '/',         label: 'Home'     },
+  { to: '/skills',   label: 'Skills'   },
   { to: '/projects', label: 'Projects' },
-  { to: '/contact', label: 'Contact' },
+  { to: '/contact',  label: 'Contact'  },
 ]
 
-const SOCIALS = [
-  { Icon: GitHubIcon,    href: 'https://github.com/evertonanyiro',      label: 'GitHub'     },
-  { Icon: LinkedInIcon,  href: 'https://linkedin.com/in/evertonanyiro', label: 'LinkedIn'   },
-  { Icon: FacebookIcon,  href: 'https://facebook.com/evertonanyiro',    label: 'Facebook'   },
-  { Icon: XIcon,         href: 'https://x.com/evertonanyiro',           label: 'X'          },
-  { Icon: InstagramIcon, href: 'https://instagram.com/evertonanyiro',   label: 'Instagram'  },
-  { Icon: WhatsAppIcon,  href: 'https://wa.me/254700000000',            label: 'WhatsApp'   },
-]
+// Default fallbacks — shown only when the admin hasn't saved a value yet
+const DEFAULTS = {
+  github:    'https://github.com/evertonanyiro',
+  linkedin:  'https://linkedin.com/in/evertonanyiro',
+  facebook:  'https://facebook.com/evertonanyiro',
+  x:         'https://x.com/evertonanyiro',
+  instagram: 'https://instagram.com/evertonanyiro',
+  whatsapp:  'https://wa.me/254700000000',
+  email:     'everton.anyiro@gmail.com',
+  phone:     '',
+}
 
 export default function Footer() {
+  const { data: social } = useQuery({
+    queryKey: ['social-links'],
+    queryFn: fetchSocialLinks,
+    staleTime: 60000,
+  })
+
+  // Merge saved values over defaults — saved value wins if non-empty
+  const s = {
+    github:    (social?.github    || DEFAULTS.github).trim(),
+    linkedin:  (social?.linkedin  || DEFAULTS.linkedin).trim(),
+    facebook:  (social?.facebook  || DEFAULTS.facebook).trim(),
+    x:         (social?.x         || DEFAULTS.x).trim(),
+    instagram: (social?.instagram || DEFAULTS.instagram).trim(),
+    whatsapp:  (social?.whatsapp  || DEFAULTS.whatsapp).trim(),
+    email:     (social?.email     || DEFAULTS.email).trim(),
+    phone:     (social?.phone     || DEFAULTS.phone).trim(),
+  }
+
+  const SOCIALS = [
+    s.github    && { Icon: GitHubIcon,    href: s.github,                         label: 'GitHub'    },
+    s.linkedin  && { Icon: LinkedInIcon,  href: s.linkedin,                       label: 'LinkedIn'  },
+    s.facebook  && { Icon: FacebookIcon,  href: s.facebook,                       label: 'Facebook'  },
+    s.x         && { Icon: XIcon,         href: s.x,                              label: 'X'         },
+    s.instagram && { Icon: InstagramIcon, href: s.instagram,                      label: 'Instagram' },
+    s.whatsapp  && { Icon: WhatsAppIcon,  href: s.whatsapp.startsWith('http') ? s.whatsapp : `https://wa.me/${s.whatsapp.replace(/\D/g,'')}`, label: 'WhatsApp' },
+  ].filter(Boolean)
+
+  const whatsappHref = s.whatsapp
+    ? (s.whatsapp.startsWith('http') ? s.whatsapp : `https://wa.me/${s.whatsapp.replace(/\D/g,'')}`)
+    : DEFAULTS.whatsapp
+
   return (
     <footer className="mt-auto bg-burgundy">
       <div className="max-w-6xl mx-auto px-6 py-10">
@@ -57,7 +92,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-2">
               {navLinks.map(({ to, label }) => (
                 <li key={to}>
-                  <Link to={to} className="text-sm text-beige/80 hover:text-gold transition-colors transition-colors">
+                  <Link to={to} className="text-sm text-beige/80 hover:text-gold transition-colors">
                     {label}
                   </Link>
                 </li>
@@ -69,18 +104,34 @@ export default function Footer() {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-beige/60 mb-3">Get In Touch</p>
             <div className="flex flex-col gap-3">
-              <a href="mailto:everton.anyiro@gmail.com"
-                className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors transition-colors">
-                <MailIcon /> everton.anyiro@gmail.com
-              </a>
-              <a href="https://wa.me/254700000000" target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors transition-colors">
-                <WhatsAppIcon /> WhatsApp
-              </a>
-              <a href="https://instagram.com/evertonanyiro" target="_blank" rel="noreferrer"
-                className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors transition-colors">
-                <InstagramIcon /> instagram.com/evertonanyiro
-              </a>
+              {s.email && (
+                <a
+                  href={`mailto:${s.email}`}
+                  className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors"
+                >
+                  <MailIcon /> {s.email}
+                </a>
+              )}
+              {s.whatsapp && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors"
+                >
+                  <WhatsAppIcon /> WhatsApp
+                </a>
+              )}
+              {s.instagram && (
+                <a
+                  href={s.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors"
+                >
+                  <InstagramIcon /> {s.instagram.replace('https://', '')}
+                </a>
+              )}
             </div>
           </div>
 
@@ -99,4 +150,3 @@ export default function Footer() {
     </footer>
   )
 }
-

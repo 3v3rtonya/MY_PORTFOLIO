@@ -1,6 +1,7 @@
 import logging
 import re
 import secrets
+import time
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
@@ -14,18 +15,41 @@ from app.schemas.schemas import LoginRequest, TokenResponse
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["Auth"])
 
-# ── Simple in-process brute-force guard ──────────────────────────────────────
-_fail_counts: dict[str, int] = {}   # ip -> consecutive fail count
+# ── Real IP resolution (works behind Fly.io proxy) ───────────────────────────
+def _real_ip(request: Request) -> str:
+    """Return the real client IP, reading Fly-Client-IP or X-Forwarded-For first."""
+    fly_ip = request.headers.get("fly-client-ip", "").strip()
+    if fly_ip:
+        return fly_ip
+    forwarded = request.headers.get("x-forwarded-for", "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+# ── In-process brute-force guard (per real IP, with 15-min expiry) ────────────
+_fail_counts: dict[str, tuple[int, float]] = {}   # ip -> (count, first_fail_timestamp)
+_LOCKOUT_WINDOW = 15 * 60   # 15 minutes
 
 def _check_rate(ip: str) -> None:
-    if _fail_counts.get(ip, 0) >= 5:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"error": "Too many failed attempts. Try again later."},
-        )
+    entry = _fail_counts.get(ip)
+    if entry:
+        count, first_fail = entry
+        if time.time() - first_fail > _LOCKOUT_WINDOW:
+            # Window expired — reset
+            del _fail_counts[ip]
+        elif count >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={"error": "Too many failed attempts. Try again in 15 minutes."},
+            )
 
 def _record_fail(ip: str) -> None:
-    _fail_counts[ip] = _fail_counts.get(ip, 0) + 1
+    entry = _fail_counts.get(ip)
+    if entry:
+        count, first_fail = entry
+        _fail_counts[ip] = (count + 1, first_fail)
+    else:
+        _fail_counts[ip] = (1, time.time())
 
 def _clear_fail(ip: str) -> None:
     _fail_counts.pop(ip, None)
@@ -43,7 +67,7 @@ def login(
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     """Login with email + password (min 6 chars, letters + numbers)."""
-    ip = request.client.host if request.client else "unknown"
+    ip = _real_ip(request)
     _check_rate(ip)
 
     admin = db.query(AdminUser).filter(AdminUser.email == body.email).first()

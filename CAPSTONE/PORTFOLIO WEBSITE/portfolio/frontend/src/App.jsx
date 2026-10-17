@@ -13,6 +13,7 @@ import SkillsPage from './pages/SkillsPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ContactPage from './pages/ContactPage'
 import AdminPage from './pages/AdminPage'
+import AboutPage from './pages/AboutPage'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 0 } } })
 
@@ -22,6 +23,7 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/"           element={<HomePage />}    />
+        <Route path="/about"      element={<AboutPage />}   />
         <Route path="/skills"     element={<SkillsPage />}  />
         <Route path="/projects"   element={<ProjectsPage />}/>
         <Route path="/contact"    element={<ContactPage />} />

@@ -17,7 +17,7 @@ export default function SidePanel({ isOpen, onClose }) {
       const next = n + 1
       clearTimeout(timerRef.current)
       if (next >= 3) {
-        navigate('/admin-xk92')
+        navigate('/everton-006')
         onClose()
         return 0
       }
