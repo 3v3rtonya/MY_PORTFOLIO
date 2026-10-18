@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchSocialLinks } from '../api/client'
 import {
   GitHubIcon, LinkedInIcon, MailIcon,
-  FacebookIcon, XIcon, InstagramIcon, WhatsAppIcon,
+  FacebookIcon, XIcon, InstagramIcon, WhatsAppIcon, PhoneIcon,
 } from './Icons'
 
 const navLinks = [
@@ -16,7 +16,7 @@ const navLinks = [
 
 // Default fallbacks — shown only when the admin hasn't saved a value yet
 const DEFAULTS = {
-  github:    'https://github.com/evertonanyiro',
+  github:    ok,
   linkedin:  'https://linkedin.com/in/evertonanyiro',
   facebook:  'https://facebook.com/evertonanyiro',
   x:         'https://x.com/evertonanyiro',
@@ -129,7 +129,15 @@ export default function Footer() {
                   rel="noreferrer"
                   className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors"
                 >
-                  <InstagramIcon /> {s.instagram.replace('https://', '')}
+                  <InstagramIcon /> Instagram
+                </a>
+              )}
+              {s.phone && (
+                <a
+                  href={`tel:${s.phone}`}
+                  className="flex items-center gap-2 text-sm text-beige/80 hover:text-gold transition-colors"
+                >
+                  <MailIcon /> {s.phone}
                 </a>
               )}
             </div>
