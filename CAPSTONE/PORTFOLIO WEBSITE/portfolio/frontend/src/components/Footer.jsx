@@ -16,7 +16,7 @@ const navLinks = [
 
 // Default fallbacks — shown only when the admin hasn't saved a value yet
 const DEFAULTS = {
-  github:    ok,
+  github:    'https://github.com/evertonanyiro',
   linkedin:  'https://linkedin.com/in/evertonanyiro',
   facebook:  'https://facebook.com/evertonanyiro',
   x:         'https://x.com/evertonanyiro',
