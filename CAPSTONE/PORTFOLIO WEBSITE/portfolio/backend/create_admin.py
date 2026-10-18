@@ -17,20 +17,19 @@ print(f"Total admins in DB: {len(admins)}")
 for a in admins:
     print(f"  ID={a.id} email={a.email} username={a.username}")
 
-# Check if our admin exists
 existing = db.query(AdminUser).filter(AdminUser.email == email).first()
 if existing:
-    print(f"\nAdmin exists: {existing.email}")
-    # Test password
+    print(f"\nAdmin found: {existing.email}")
     ok = verify_password(password, existing.hashed_password)
-    print(f"Password '{password}' matches: {ok}")
+    print(f"Password check: {ok}")
     if not ok:
-        # Reset the password
         existing.hashed_password = hash_password(password)
         db.commit()
-        print("Password has been reset.")
+        print("Password reset done.")
+    else:
+        print("Password is already correct — login should work.")
 else:
-    print(f"\nAdmin not found — creating...")
+    print(f"\nNo admin found — creating...")
     admin = AdminUser(username=username, email=email, hashed_password=hash_password(password))
     db.add(admin)
     db.commit()
