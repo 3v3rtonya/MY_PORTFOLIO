@@ -51,6 +51,7 @@ export const setPhotoUrl        = (url) => api.post('/api/v1/admin/photo/url', {
 export const fetchProfileBackImages = () => api.get('/api/v1/admin/profile-back-images').then(r => r.data)
 export const uploadProfileBackImage = (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/api/v1/admin/profile-back-image', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data) }
 export const deleteProfileBackImage = (index) => api.delete(`/api/v1/admin/profile-back-image/${index}`).then(r => r.data)
+export const addProfileBackImageUrl = (url) => api.post('/api/v1/admin/profile-back-image/url', { url }).then(r => r.data)
 
 // Admin — project image upload/delete
 export const uploadProjectImage = (id, file) => { const fd = new FormData(); fd.append('file', file); return api.post(`/api/v1/admin/projects/${id}/image`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data) }

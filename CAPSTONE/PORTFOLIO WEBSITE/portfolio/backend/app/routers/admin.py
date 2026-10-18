@@ -346,6 +346,24 @@ def delete_profile_back_image(request: Request, index: int, db: Session = Depend
     return {"images": current}
 
 
+@router.post("/profile-back-image/url", status_code=201)
+@limiter.limit("20/minute")
+def add_profile_back_image_url(request: Request, body: dict, db: Session = Depends(get_db)):
+    """Add a profile flip-card back image from an external URL (e.g. Google Drive)."""
+    url = (body.get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail={"error": "URL is required"})
+    if not url.startswith("http"):
+        raise HTTPException(status_code=422, detail={"error": "Must be a valid http(s) URL"})
+    raw = settings_service.get_setting(db, "profile_back_images")
+    current = json.loads(raw) if raw else []
+    if len(current) >= 3:
+        raise HTTPException(status_code=400, detail={"error": "Maximum of 3 back images already set"})
+    current.append(url)
+    settings_service.set_setting(db, "profile_back_images", json.dumps(current))
+    return {"images": current, "url": url}
+
+
 # ── Social Links ──────────────────────────────────────────────────────────────
 
 @router.get("/social-links", response_model=SocialLinksResponse)

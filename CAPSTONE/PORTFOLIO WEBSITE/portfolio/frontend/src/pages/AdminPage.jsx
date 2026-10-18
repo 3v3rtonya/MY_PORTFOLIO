@@ -6,7 +6,7 @@ import {
   fetchMessages, patchMessage, fetchCVLogs, clearCVLogs,
   changePassword, uploadCV, deleteCV, fetchCVStatus, setCVUrl,
   uploadPhoto, deletePhoto, setPhotoUrl,
-  fetchProfileBackImages, uploadProfileBackImage, deleteProfileBackImage,
+  fetchProfileBackImages, uploadProfileBackImage, deleteProfileBackImage, addProfileBackImageUrl,
   fetchAdminSocial, updateSocialLinks,
   fetchNotifications, markNotificationRead, markAllNotificationsRead,
   fetchAdminMedia, createMediaItem, updateMediaItem, deleteMediaItem,
@@ -795,6 +795,7 @@ function PhotoTab() {
   const fileRef = useRef(null)
   const backImgRef = useRef(null)
   const [photoUrlInput, setPhotoUrlInput] = React.useState('')
+  const [backUrlInput, setBackUrlInput] = React.useState('')
 
   const { data: settings } = useQuery({ queryKey: ['social-links'], queryFn: fetchSocialLinks })
   const rawPhotoUrl = settings?.photo_url || null
@@ -844,6 +845,17 @@ function PhotoTab() {
       showToast('Back image removed.', 'success')
     },
     onError: () => showToast('Failed to remove image.', 'error'),
+  })
+
+  const addBackUrlMut = useMutation({
+    mutationFn: addProfileBackImageUrl,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile-back-images'] })
+      qc.invalidateQueries({ queryKey: ['social-links'] })
+      showToast('Back image URL added!', 'success')
+      setBackUrlInput('')
+    },
+    onError: (e) => showToast(e?.response?.data?.detail?.error || 'Failed to add URL', 'error'),
   })
 
   return (
@@ -980,6 +992,34 @@ function PhotoTab() {
             <p className="text-xs text-center text-gray-400 dark:text-gray-500 py-1">
               All 3 slots filled — remove one to upload a replacement.
             </p>
+          )}
+
+          {/* URL input for Google Drive or any direct image link */}
+          {backImages.length < 3 && (
+            <>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+                <span className="text-xs text-gray-400">or paste a URL</span>
+                <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Image URL (Google Drive, Imgur, etc.)</label>
+                <p className="text-[10px] text-gray-400 mb-1.5">Google Drive: use <code className="bg-white/10 px-1 rounded">uc?export=view&id=FILE_ID</code></p>
+                <input
+                  className={ic}
+                  value={backUrlInput}
+                  onChange={e => setBackUrlInput(e.target.value)}
+                  placeholder="https://drive.google.com/uc?export=view&id=..."
+                />
+              </div>
+              <button
+                onClick={() => backUrlInput.trim() && addBackUrlMut.mutate(backUrlInput.trim())}
+                disabled={addBackUrlMut.isPending || !backUrlInput.trim()}
+                className="w-full py-2 rounded-xl bg-gold/80 text-white font-semibold text-sm hover:bg-gold disabled:opacity-60"
+              >
+                {addBackUrlMut.isPending ? 'Adding...' : `Add Image ${backImages.length + 1} via URL`}
+              </button>
+            </>
           )}
         </div>
 
