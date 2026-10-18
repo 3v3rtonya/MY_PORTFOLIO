@@ -51,14 +51,14 @@ export default function ContactPage() {
     : DEFAULTS.whatsapp
 
   const SOCIAL = [
-    s.email    && { icon: <MailIcon />,      label: s.email,                              href: `mailto:${s.email}`,                     target: '_self'  },
-    s.phone    && { icon: <PhoneIcon />,     label: s.phone,                              href: `tel:${s.phone}`,                        target: '_self'  },
-    s.github   && { icon: <GitHubIcon />,    label: s.github.replace('https://', ''),     href: s.github,                                target: '_blank' },
-    s.linkedin && { icon: <LinkedInIcon />,  label: s.linkedin.replace('https://', ''),   href: s.linkedin,                              target: '_blank' },
-    s.facebook && { icon: <FacebookIcon />,  label: s.facebook.replace('https://', ''),   href: s.facebook,                              target: '_blank' },
-    s.x        && { icon: <XIcon />,         label: s.x.replace('https://', ''),          href: s.x,                                     target: '_blank' },
-    s.instagram && { icon: <InstagramIcon />, label: s.instagram.replace('https://', ''), href: s.instagram,                             target: '_blank' },
-    s.whatsapp && { icon: <WhatsAppIcon />,  label: 'WhatsApp',                           href: whatsappHref,                            target: '_blank' },
+    s.email    && { icon: <MailIcon />,      label: s.email,       href: `mailto:${s.email}`,                                                                     target: '_self'  },
+    s.phone    && { icon: <PhoneIcon />,     label: s.phone,       href: `tel:${s.phone}`,                                                                        target: '_self'  },
+    s.github   && { icon: <GitHubIcon />,    label: 'GitHub',      href: s.github,                                                                                target: '_blank' },
+    s.linkedin && { icon: <LinkedInIcon />,  label: 'LinkedIn',    href: s.linkedin,                                                                              target: '_blank' },
+    s.facebook && { icon: <FacebookIcon />,  label: 'Facebook',    href: s.facebook,                                                                              target: '_blank' },
+    s.x        && { icon: <XIcon />,         label: 'X (Twitter)', href: s.x,                                                                                     target: '_blank' },
+    s.instagram && { icon: <InstagramIcon />, label: 'Instagram',  href: s.instagram,                                                                             target: '_blank' },
+    s.whatsapp && { icon: <WhatsAppIcon />,  label: 'WhatsApp',    href: whatsappHref,                                                                            target: '_blank' },
   ].filter(Boolean)
 
   return (
