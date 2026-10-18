@@ -19,15 +19,26 @@ CV_FILENAME = "Everton_Anyiro_CV.pdf"
 _LOCAL_CV = os.path.join(os.path.dirname(__file__), "..", "..", "static", CV_KEY)
 
 
+@router.get("/cv/status")
+def public_cv_status(db: Session = Depends(get_db)):
+    """Public endpoint — check whether a CV is available for download."""
+    cv_path = settings_service.get_setting(db, "cv_path") or ""
+    if cv_path.strip() and cv_path.startswith("http"):
+        return {"exists": True}
+    if os.path.isfile(_LOCAL_CV):
+        return {"exists": True}
+    return {"exists": False}
+
+
 @router.get("/cv/download")
 @limiter.limit("20/minute")
 def download_cv(request: Request, db: Session = Depends(get_db)):
     """
     Download the CV PDF.
 
-    • When Cloudflare R2 is configured, redirects the browser directly to the
-      R2 public URL (no proxy traffic through Fly.io).
-    • Falls back to streaming the local file when R2 is absent (dev mode).
+    • When cv_path is an http URL, redirects the browser directly to it.
+    • Falls back to streaming the local file when available.
+    • Returns 404 with clear message when CV is not configured.
     """
     ip         = request.client.host if request.client else "unknown"
     user_agent = request.headers.get("user-agent", "unknown")
@@ -41,18 +52,19 @@ def download_cv(request: Request, db: Session = Depends(get_db)):
     # Determine where the CV lives
     cv_url = settings_service.get_setting(db, "cv_path") or ""
 
-    if cv_url and cv_url.startswith("http"):
-        # R2 public URL — redirect browser directly
+    if cv_url.strip() and cv_url.startswith("http"):
         return RedirectResponse(url=cv_url, status_code=302)
 
     # Local fallback
-    local = _LOCAL_CV
-    if not os.path.isfile(local):
-        raise HTTPException(status_code=404, detail={"error": "CV file not available. Upload it via the admin dashboard."})
+    if os.path.isfile(_LOCAL_CV):
+        return FileResponse(
+            path=_LOCAL_CV,
+            media_type="application/pdf",
+            filename=CV_FILENAME,
+            headers={"Content-Disposition": f'attachment; filename="{CV_FILENAME}"'},
+        )
 
-    return FileResponse(
-        path=local,
-        media_type="application/pdf",
-        filename=CV_FILENAME,
-        headers={"Content-Disposition": f'attachment; filename="{CV_FILENAME}"'},
+    raise HTTPException(
+        status_code=404,
+        detail={"error": "CV not available. Upload a PDF or set a URL via the admin dashboard."}
     )

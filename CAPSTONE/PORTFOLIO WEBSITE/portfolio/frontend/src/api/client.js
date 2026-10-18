@@ -40,10 +40,12 @@ export const changePassword     = (current, next) => api.post('/api/v1/admin/cha
 export const uploadCV           = (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/api/v1/admin/cv/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data) }
 export const deleteCV           = () => api.delete('/api/v1/admin/cv').then(r => r.data)
 export const fetchCVStatus      = () => api.get('/api/v1/admin/cv/status').then(r => r.data)
+export const setCVUrl           = (url) => api.post('/api/v1/admin/cv/url', { url }).then(r => r.data)
 
 // Admin — photo upload/delete
 export const uploadPhoto        = (file) => { const fd = new FormData(); fd.append('file', file); return api.post('/api/v1/admin/photo/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data) }
 export const deletePhoto        = () => api.delete('/api/v1/admin/photo').then(r => r.data)
+export const setPhotoUrl        = (url) => api.post('/api/v1/admin/photo/url', { url }).then(r => r.data)
 
 // Admin — profile back images
 export const fetchProfileBackImages = () => api.get('/api/v1/admin/profile-back-images').then(r => r.data)

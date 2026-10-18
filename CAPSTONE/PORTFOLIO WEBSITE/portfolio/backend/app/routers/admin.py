@@ -220,6 +220,20 @@ def delete_cv(request: Request, db: Session = Depends(get_db)):
     settings_service.create_notification(db, type_="cv_upload", title="CV Removed", body="The CV PDF has been deleted")
     return {"message": "CV removed"}
 
+
+@router.post("/cv/url", status_code=200)
+@limiter.limit("10/minute")
+def set_cv_url(request: Request, body: dict, db: Session = Depends(get_db)):
+    """Set CV from an external URL (e.g. Google Drive direct download link)."""
+    url = (body.get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail={"error": "URL is required"})
+    if not url.startswith("http"):
+        raise HTTPException(status_code=422, detail={"error": "Must be a valid http(s) URL"})
+    settings_service.set_setting(db, "cv_path", url)
+    settings_service.create_notification(db, type_="cv_upload", title="CV URL Updated", body=f"CV URL set to: {url}")
+    return {"message": "CV URL saved", "cv_path": url}
+
 @router.get("/cv/status")
 @limiter.limit("60/minute")
 def cv_status(request: Request, db: Session = Depends(get_db)):
@@ -264,6 +278,19 @@ def delete_photo(request: Request, db: Session = Depends(get_db)):
         storage.delete(f"profile/profile.{ext}")
     settings_service.set_setting(db, "photo_url", "")
     return {"message": "Photo removed"}
+
+
+@router.post("/photo/url", status_code=200)
+@limiter.limit("20/minute")
+def set_photo_url(request: Request, body: dict, db: Session = Depends(get_db)):
+    """Set profile photo from an external URL (e.g. Imgur, Google Drive)."""
+    url = (body.get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=422, detail={"error": "URL is required"})
+    if not url.startswith("http"):
+        raise HTTPException(status_code=422, detail={"error": "Must be a valid http(s) URL"})
+    settings_service.set_setting(db, "photo_url", url)
+    return {"message": "Photo URL saved", "photo_url": url}
 
 
 # ── Profile Back Images ───────────────────────────────────────────────────────

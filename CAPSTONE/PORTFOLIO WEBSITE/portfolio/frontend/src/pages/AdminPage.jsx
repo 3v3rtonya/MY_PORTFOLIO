@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   fetchAdminProjects, createProject, updateProject, deleteProject,
   fetchMessages, patchMessage, fetchCVLogs, clearCVLogs,
-  changePassword, uploadCV, deleteCV, fetchCVStatus,
-  uploadPhoto, deletePhoto,
+  changePassword, uploadCV, deleteCV, fetchCVStatus, setCVUrl,
+  uploadPhoto, deletePhoto, setPhotoUrl,
   fetchProfileBackImages, uploadProfileBackImage, deleteProfileBackImage,
   fetchAdminSocial, updateSocialLinks,
   fetchNotifications, markNotificationRead, markAllNotificationsRead,
@@ -719,7 +719,9 @@ function CVTab() {
   const { showToast } = useToast()
   const qc = useQueryClient()
   const fileRef = useRef(null)
+  const [cvUrl, setCvUrlInput] = React.useState('')
   const { data: cvStatus } = useQuery({ queryKey: ['cv-status'], queryFn: fetchCVStatus, refetchInterval: 5000 })
+
   const uploadMut = useMutation({
     mutationFn: uploadCV,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['cv-status'] }); showToast('CV uploaded successfully!', 'success') },
@@ -729,20 +731,54 @@ function CVTab() {
     mutationFn: deleteCV,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['cv-status'] }); showToast('CV removed.', 'success') },
   })
+  const setUrlMut = useMutation({
+    mutationFn: setCVUrl,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['cv-status'] }); showToast('CV URL saved!', 'success'); setCvUrlInput('') },
+    onError: (e) => showToast(e?.response?.data?.detail?.error || 'Failed to save URL', 'error'),
+  })
+
   return (
     <GlassmorphismCard className="p-6 max-w-md">
       <h3 className="font-bold text-burgundy dark:text-gold mb-4">CV Manager</h3>
       <div className={`p-4 rounded-xl mb-5 text-sm font-medium text-center ${cvStatus?.exists ? 'bg-green-500/15 text-green-700 dark:text-green-300 border border-green-400/30' : 'bg-red-500/10 text-red-500 border border-red-400/20'}`}>
-        {cvStatus?.exists ? 'CV is currently available for download' : 'No CV uploaded — download button will show error'}
+        {cvStatus?.exists ? '✓ CV is available for download' : '✗ No CV — download button will show an error'}
       </div>
       <div className="flex flex-col gap-3">
+        {/* Upload file */}
         <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={e => e.target.files[0] && uploadMut.mutate(e.target.files[0])} />
         <button onClick={() => fileRef.current?.click()} disabled={uploadMut.isPending}
           className="py-2.5 rounded-xl bg-burgundy text-white font-semibold text-sm hover:bg-burgundy/90 disabled:opacity-60">
           {uploadMut.isPending ? 'Uploading...' : 'Upload New CV (PDF)'}
         </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-2 my-1">
+          <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+          <span className="text-xs text-gray-400">or paste a URL</span>
+          <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+        </div>
+
+        {/* URL input — for Google Drive or any direct PDF link */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">CV URL (Google Drive, Dropbox, etc.)</label>
+          <p className="text-[10px] text-gray-400 mb-2">For Google Drive: File → Share → "Anyone with the link" → Copy link</p>
+          <input
+            className={ic}
+            value={cvUrl}
+            onChange={e => setCvUrlInput(e.target.value)}
+            placeholder="https://drive.google.com/file/d/..."
+          />
+        </div>
+        <button
+          onClick={() => cvUrl.trim() && setUrlMut.mutate(cvUrl.trim())}
+          disabled={setUrlMut.isPending || !cvUrl.trim()}
+          className="py-2.5 rounded-xl bg-gold/80 text-white font-semibold text-sm hover:bg-gold disabled:opacity-60"
+        >
+          {setUrlMut.isPending ? 'Saving...' : 'Save CV URL'}
+        </button>
+
         {cvStatus?.exists && (
-          <button onClick={() => confirm('Remove the CV?') && deleteMut.mutate()} disabled={deleteMut.isPending}
+          <button onClick={() => window.confirm('Remove the CV?') && deleteMut.mutate()} disabled={deleteMut.isPending}
             className="py-2.5 rounded-xl bg-red-500/20 text-red-600 dark:text-red-400 font-semibold text-sm hover:bg-red-500/30 disabled:opacity-60">
             {deleteMut.isPending ? 'Removing...' : 'Remove CV'}
           </button>
@@ -758,9 +794,13 @@ function PhotoTab() {
   const qc = useQueryClient()
   const fileRef = useRef(null)
   const backImgRef = useRef(null)
+  const [photoUrlInput, setPhotoUrlInput] = React.useState('')
 
   const { data: settings } = useQuery({ queryKey: ['social-links'], queryFn: fetchSocialLinks })
-  const photoUrl = settings?.photo_url ? `${API_URL}${settings.photo_url}` : null
+  const rawPhotoUrl = settings?.photo_url || null
+  const photoUrl = rawPhotoUrl
+    ? (rawPhotoUrl.startsWith('http') ? rawPhotoUrl : `${API_URL}${rawPhotoUrl}`)
+    : null
 
   const { data: backImgData } = useQuery({
     queryKey: ['profile-back-images'],
@@ -776,6 +816,11 @@ function PhotoTab() {
   const deleteMut = useMutation({
     mutationFn: deletePhoto,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-links'] }); showToast('Photo removed.', 'success') },
+  })
+  const setPhotoUrlMut = useMutation({
+    mutationFn: setPhotoUrl,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['social-links'] }); showToast('Photo URL saved!', 'success'); setPhotoUrlInput('') },
+    onError: (e) => showToast(e?.response?.data?.detail?.error || 'Failed to save URL', 'error'),
   })
 
   const uploadBackMut = useMutation({
@@ -842,6 +887,31 @@ function PhotoTab() {
             </button>
           )}
           <p className="text-xs text-gray-400 text-center">JPEG, PNG or WebP. Shown on the landing page.</p>
+
+          {/* Divider */}
+          <div className="flex items-center gap-2 w-full">
+            <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+            <span className="text-xs text-gray-400">or paste a URL</span>
+            <div className="flex-1 h-px bg-white/20 dark:bg-white/10" />
+          </div>
+
+          {/* External URL input */}
+          <div className="w-full">
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Photo URL (Imgur, Google Drive, etc.)</label>
+            <input
+              className={ic}
+              value={photoUrlInput}
+              onChange={e => setPhotoUrlInput(e.target.value)}
+              placeholder="https://i.imgur.com/yourphoto.jpg"
+            />
+          </div>
+          <button
+            onClick={() => photoUrlInput.trim() && setPhotoUrlMut.mutate(photoUrlInput.trim())}
+            disabled={setPhotoUrlMut.isPending || !photoUrlInput.trim()}
+            className="w-full py-2.5 rounded-xl bg-gold/80 text-white font-semibold text-sm hover:bg-gold disabled:opacity-60"
+          >
+            {setPhotoUrlMut.isPending ? 'Saving...' : 'Save Photo URL'}
+          </button>
         </div>
       </GlassmorphismCard>
 
